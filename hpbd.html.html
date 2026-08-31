@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Happy Birthday Matrix</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #030008;
+      font-family: 'Orbitron', monospace;
+    }
+    canvas {
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    .overlay-glow {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+      background: radial-gradient(circle at center, transparent 30%, rgba(3, 0, 8, 0.85) 90%);
+      box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.95);
+    }
+    .tap-hint {
+      position: absolute;
+      bottom: 25px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 3;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 11px;
+      font-family: 'Montserrat', sans-serif;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      pointer-events: none;
+      animation: pulse 2s infinite ease-in-out;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.3; transform: translateX(-50%) translateY(0); }
+      50% { opacity: 0.9; transform: translateX(-50%) translateY(-5px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay-glow"></div>
+  <div class="tap-hint">Chạm vào màn hình để thả pháo hoa ✨</div>
+  <canvas id="matrixCanvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('matrixCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    const chars = '0123456789ABCDEFHIJKLMNOPQRSTUVWXYZ♥★✦✧🎂🎉✨💖';
+    const fontSize = 15;
+    let columns = Math.floor(width / fontSize);
+    let drops = [];
+
+    function initDrops() {
+      columns = Math.floor(width / fontSize);
+      drops = [];
+      for (let i = 0; i < columns; i++) {
+        drops[i] = {
+          y: Math.random() * -100,
+          speed: 0.8 + Math.random() * 0.8
+        };
+      }
+    }
+    initDrops();
+
+    // Hạt tạo chữ Happy Birthday
+    class Particle {
+      constructor(targetX, targetY) {
+        this.targetX = targetX;
+        this.targetY = targetY;
+        this.x = Math.random() * width;
+        this.y = Math.random() * -height;
+        this.vx = 0;
+        this.vy = 0;
+        this.char = chars[Math.floor(Math.random() * chars.length)];
+        this.friction = 0.94;
+        this.ease = 0.04;
+        this.color = Math.random() > 0.4 ? '#ffffff' : '#ff9bf5';
+        this.size = 10 + Math.random() * 3;
+      }
+      update() {
+        const dx = this.targetX - this.x;
+        const dy = this.targetY - this.y;
+        this.vx += dx * this.ease;
+        this.vy += dy * this.ease;
+        this.vx *= this.friction;
+        this.vy *= this.friction;
+        this.x += this.vx;
+        this.y += this.vy;
+
+        if (Math.random() < 0.02) {
+          this.char = chars[Math.floor(Math.random() * chars.length)];
+        }
+      }
+      draw() {
+        ctx.font = `bold ${this.size}px monospace`;
+        ctx.fillStyle = this.color;
+        ctx.fillText(this.char, this.x, this.y);
+      }
+    }
+
+    let textParticles = [];
+
+    function initTextParticles() {
+      const offCanvas = document.createElement('canvas');
+      const offCtx = offCanvas.getContext('2d');
+      offCanvas.width = width;
+      offCanvas.height = height;
+
+      offCtx.fillStyle = '#ffffff';
+      offCtx.textAlign = 'center';
+      offCtx.textBaseline = 'middle';
+
+      const isLandscape = width > height;
+      const baseFontSize = isLandscape ? height / 4.8 : width / 5.2;
+      const adjustedFontSize = Math.min(baseFontSize, 72);
+
+      offCtx.font = `900 ${adjustedFontSize}px 'Orbitron', sans-serif`;
+
+      const lineSpacing = adjustedFontSize * 1.15;
+      offCtx.fillText('HAPPY', width / 2, height / 2 - lineSpacing / 2);
+      offCtx.fillText('BIRTHDAY', width / 2, height / 2 + lineSpacing / 2);
+
+      const imgData = offCtx.getImageData(0, 0, width, height).data;
+      textParticles = [];
+
+      const step = 6;
+      for (let y = 0; y < height; y += step) {
+        for (let x = 0; x < width; x += step) {
+          const index = (y * width + x) * 4;
+          if (imgData[index + 3] > 140) {
+            textParticles.push(new Particle(x, y));
+          }
+        }
+      }
+    }
+
+    // Hiệu ứng pháo hoa tia sáng khi bấm
+    let fireworks = [];
+    class Spark {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 6 + 2;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        this.alpha = 1;
+        this.decay = Math.random() * 0.02 + 0.015;
+        this.color = `hsl(${Math.random() * 60 + 290}, 100%, 75%)`;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vy += 0.08;
+        this.alpha -= this.decay;
+      }
+      draw() {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.alpha);
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function addExplosion(x, y) {
+      for (let i = 0; i < 35; i++) {
+        fireworks.push(new Spark(x, y));
+      }
+      // Đẩy các hạt chữ bay ra khi chạm gần
+      textParticles.forEach(p => {
+        const dist = Math.hypot(p.x - x, p.y - y);
+        if (dist < 120) {
+          const force = (120 - dist) * 0.35;
+          const angle = Math.atan2(p.y - y, p.x - x);
+          p.vx += Math.cos(angle) * force;
+          p.vy += Math.sin(angle) * force;
+        }
+      });
+    }
+
+    window.addEventListener('resize', () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+      initDrops();
+      initTextParticles();
+    });
+
+    window.addEventListener('pointerdown', (e) => {
+      addExplosion(e.clientX, e.clientY);
+    });
+
+    initTextParticles();
+
+    let huePulse = 0;
+
+    function render() {
+      // Vệt mờ ma trận chuyển động
+      ctx.fillStyle = 'rgba(3, 0, 8, 0.18)';
+      ctx.fillRect(0, 0, width, height);
+
+      // 1. Mưa ma trận Cyber Neon ở phông nền
+      ctx.font = `${fontSize}px monospace`;
+      for (let i = 0; i < drops.length; i++) {
+        const char = chars[Math.floor(Math.random() * chars.length)];
+        const x = i * fontSize;
+        const y = drops[i].y * fontSize;
+
+        ctx.fillStyle = '#b537f2';
+        ctx.fillText(char, x, y);
+
+        // Đầu giọt mưa phát sáng
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(char, x, y + fontSize);
+
+        if (y > height && Math.random() > 0.975) {
+          drops[i].y = 0;
+        }
+        drops[i].y += drops[i].speed;
+      }
+
+      // 2. Chữ HAPPY BIRTHDAY 3D phát sáng
+      huePulse += 0.03;
+      const glowColor = `hsl(${Math.sin(huePulse) * 40 + 310}, 100%, 65%)`;
+
+      ctx.save();
+      ctx.shadowBlur = 18;
+      ctx.shadowColor = glowColor;
+
+      for (let i = 0; i < textParticles.length; i++) {
+        textParticles[i].update();
+        textParticles[i].draw();
+      }
+      ctx.restore();
+
+      // 3. Pháo hoa
+      for (let i = fireworks.length - 1; i >= 0; i--) {
+        fireworks[i].update();
+        fireworks[i].draw();
+        if (fireworks[i].alpha <= 0) {
+          fireworks.splice(i, 1);
+        }
+      }
+
+      requestAnimationFrame(render);
+    }
+
+    render();
+  </script>
+</body>
+</html>
