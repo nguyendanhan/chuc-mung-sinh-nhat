@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Happy Birthday - Matrix & Beating Heart</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        #canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        
+        /* Start Overlay */
+        #start-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 5, 0.92);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #00ff66;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            transition: opacity 0.8s ease, visibility 0.8s;
+            padding: 20px;
+        }
+        #start-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .start-btn {
+            margin-top: 22px;
+            padding: 14px 36px;
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #000;
+            background: linear-gradient(135deg, #00ff66, #00e5ff);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(0, 255, 102, 0.6), 0 0 40px rgba(0, 229, 255, 0.4);
+            animation: pulse-btn 1.6s infinite ease-in-out;
+            outline: none;
+            letter-spacing: 1px;
+        }
+        @keyframes pulse-btn {
+            0% { transform: scale(1); box-shadow: 0 0 15px rgba(0, 255, 102, 0.6); }
+            50% { transform: scale(1.08); box-shadow: 0 0 30px rgba(0, 255, 102, 0.9), 0 0 50px rgba(255, 0, 102, 0.7); }
+            100% { transform: scale(1); box-shadow: 0 0 15px rgba(0, 255, 102, 0.6); }
+        }
+        .title-overlay {
+            font-size: 1.8rem;
+            font-weight: 800;
+            letter-spacing: 3px;
+            color: #00ff66;
+            text-shadow: 0 0 12px #00ff66, 0 0 25px #00ff66;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+        .subtitle {
+            font-size: 0.95rem;
+            color: #aaa;
+            max-width: 85%;
+            line-height: 1.5;
+        }
+
+        /* Portrait Warning Overlay */
+        #portrait-warning {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #080808;
+            color: #ff3366;
+            z-index: 200;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 24px;
+        }
+        .phone-icon {
+            font-size: 55px;
+            animation: rotate-phone 2.2s infinite ease-in-out;
+            margin-bottom: 18px;
+        }
+        @keyframes rotate-phone {
+            0%, 10% { transform: rotate(0deg); }
+            40%, 60% { transform: rotate(90deg); }
+            90%, 100% { transform: rotate(0deg); }
+        }
+        @media screen and (orientation: portrait) {
+            #portrait-warning {
+                display: flex;
+            }
+        }
+
+        /* Music control toggle */
+        #music-control {
+            position: fixed;
+            bottom: 18px;
+            right: 18px;
+            z-index: 50;
+            background: rgba(0, 255, 102, 0.12);
+            border: 1px solid rgba(0, 255, 102, 0.5);
+            color: #00ff66;
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 22px;
+            cursor: pointer;
+            box-shadow: 0 0 12px rgba(0, 255, 102, 0.3);
+            backdrop-filter: blur(5px);
+            transition: transform 0.2s, background 0.2s;
+        }
+        #music-control:active {
+            transform: scale(0.9);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Rotation Notice for Mobile -->
+    <div id="portrait-warning">
+        <div class="phone-icon">📱</div>
+        <h2 style="font-size: 1.4rem; margin-bottom: 8px;">Vui lòng xoay ngang màn hình</h2>
+        <p style="color: #888; font-size: 0.9rem;">Giao diện được tối ưu chuẩn cho màn hình điện thoại xoay ngang (Landscape Mode).</p>
+    </div>
+
+    <!-- Start Overlay -->
+    <div id="start-overlay">
+        <div class="title-overlay">✨ MATRIX BIRTHDAY ✨</div>
+        <div class="subtitle">Bấm nút bên dưới để mở hiệu ứng ma trận kết hợp trái tim đập & giai điệu sinh nhật!</div>
+        <button class="start-btn" id="btn-start">🎁 MỞ QUÀ SINH NHẬT 🎁</button>
+    </div>
+
+    <!-- Audio Control Button -->
+    <button id="music-control" title="Bật/Tắt Nhạc">🎵</button>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            initMatrix();
+            initHeartPoints();
+        });
+
+        // Matrix Rain Setup
+        const katakana = 'アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズブヅプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン';
+        const latin = 'HAPPYBIRTHDAY0123456789♥❤🎂🎉🎁✨';
+        const alphabet = katakana + latin;
+
+        const fontSize = 15;
+        let columns = Math.floor(width / fontSize);
+        let rainDrop = [];
+
+        function initMatrix() {
+            columns = Math.floor(width / fontSize);
+            rainDrop = [];
+            for (let i = 0; i < columns; i++) {
+                rainDrop[i] = Math.floor(Math.random() * -100);
+            }
+        }
+        initMatrix();
+
+        // Heart Outline Points
+        let heartPoints = [];
+        function initHeartPoints() {
+            heartPoints = [];
+            // Scale based on landscape dimensions
+            const scale = Math.min(width, height) / 32;
+            const cx = width / 2;
+            const cy = height / 2 - 8;
+
+            for (let t = 0; t < Math.PI * 2; t += 0.04) {
+                // Heart parametric formula
+                const x = 16 * Math.pow(Math.sin(t), 3);
+                const y = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+                heartPoints.push({
+                    x: cx + x * scale,
+                    y: cy + y * scale
+                });
+            }
+        }
+        initHeartPoints();
+
+        let phase = 0; // 0: Rain only, 1: Matrix + Beating Heart + Happy Birthday
+
+        // Web Audio Synth for "Happy Birthday" Tune
+        let audioCtx = null;
+        let isPlaying = false;
+
+        const melody = [
+            { note: 'C4', duration: 0.75 }, { note: 'C4', duration: 0.25 }, { note: 'D4', duration: 1.0 }, { note: 'C4', duration: 1.0 }, { note: 'F4', duration: 1.0 }, { note: 'E4', duration: 2.0 },
+            { note: 'C4', duration: 0.75 }, { note: 'C4', duration: 0.25 }, { note: 'D4', duration: 1.0 }, { note: 'C4', duration: 1.0 }, { note: 'G4', duration: 1.0 }, { note: 'F4', duration: 2.0 },
+            { note: 'C4', duration: 0.75 }, { note: 'C4', duration: 0.25 }, { note: 'C5', duration: 1.0 }, { note: 'A4', duration: 1.0 }, { note: 'F4', duration: 1.0 }, { note: 'E4', duration: 1.0 }, { note: 'D4', duration: 2.0 },
+            { note: 'A#4', duration: 0.75 }, { note: 'A#4', duration: 0.25 }, { note: 'A4', duration: 1.0 }, { note: 'F4', duration: 1.0 }, { note: 'G4', duration: 1.0 }, { note: 'F4', duration: 2.5 }
+        ];
+
+        const freqMap = {
+            'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23,
+            'G4': 392.00, 'A4': 440.00, 'A#4': 466.16, 'C5': 523.25
+        };
+
+        function playNote(freq, duration, time) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'triangle'; // Soft synthesizer sound
+            osc.frequency.setValueAtTime(freq, time);
+
+            // Envelope ADSR
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(0.25, time + 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + duration - 0.02);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start(time);
+            osc.stop(time + duration);
+        }
+
+        let musicTimer = null;
+        function playMelody() {
+            if (!audioCtx) return;
+            let tempo = 0.42; // Beat speed
+            let currentTime = audioCtx.currentTime + 0.1;
+
+            melody.forEach(item => {
+                const dur = item.duration * tempo;
+                playNote(freqMap[item.note], dur, currentTime);
+                currentTime += dur;
+            });
+
+            const totalTimeMs = (currentTime - audioCtx.currentTime) * 1000;
+            musicTimer = setTimeout(() => {
+                if (isPlaying) playMelody();
+            }, totalTimeMs);
+        }
+
+        function toggleAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            if (isPlaying) {
+                isPlaying = false;
+                if (musicTimer) clearTimeout(musicTimer);
+                document.getElementById('music-control').innerText = '🔇';
+            } else {
+                isPlaying = true;
+                playMelody();
+                document.getElementById('music-control').innerText = '🎵';
+            }
+        }
+
+        document.getElementById('music-control').addEventListener('click', toggleAudio);
+
+        // Particle Explosions / Fireworks
+        let fireworks = [];
+        class Firework {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.particles = [];
+                for (let i = 0; i < 35; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = Math.random() * 4.5 + 1;
+                    this.particles.push({
+                        x: x,
+                        y: y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        alpha: 1,
+                        size: Math.random() * 3 + 1.5
+                    });
+                }
+            }
+            update() {
+                this.particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.06; // gravity
+                    p.alpha -= 0.022;
+                });
+                this.particles = this.particles.filter(p => p.alpha > 0);
+            }
+            draw() {
+                this.particles.forEach(p => {
+                    ctx.save();
+                    ctx.globalAlpha = p.alpha;
+                    ctx.fillStyle = this.color;
+                    ctx.shadowColor = this.color;
+                    ctx.shadowBlur = 8;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                });
+            }
+        }
+
+        // Heart beating animation variables
+        let heartPulseScale = 1;
+        let pulseDirection = 0.006;
+
+        function render() {
+            // Semi-transparent background for rain trail effect
+            ctx.fillStyle = 'rgba(5, 5, 5, 0.14)';
+            ctx.fillRect(0, 0, width, height);
+
+            // 1. Matrix Code Rain
+            ctx.font = fontSize + 'px monospace';
+            for (let i = 0; i < rainDrop.length; i++) {
+                const char = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+                const x = i * fontSize;
+                const y = rainDrop[i] * fontSize;
+
+                // Glowing color variation
+                const rand = Math.random();
+                if (rand > 0.94) {
+                    ctx.fillStyle = '#ffffff'; // White lead character
+                    ctx.shadowColor = '#ffffff';
+                    ctx.shadowBlur = 10;
+                } else if (rand > 0.85) {
+                    ctx.fillStyle = '#ff0066'; // Pink matrix heart accent
+                    ctx.shadowColor = '#ff0066';
+                    ctx.shadowBlur = 6;
+                } else if (rand > 0.5) {
+                    ctx.fillStyle = '#00ff66'; // Matrix Green
+                    ctx.shadowColor = '#00ff66';
+                    ctx.shadowBlur = 4;
+                } else {
+                    ctx.fillStyle = '#00bb44'; // Dim green
+                    ctx.shadowBlur = 0;
+                }
+
+                ctx.fillText(char, x, y);
+
+                if (y > height && Math.random() > 0.975) {
+                    rainDrop[i] = 0;
+                }
+                rainDrop[i]++;
+            }
+
+            // 2. Active Phase: Heart & Happy Birthday
+            if (phase >= 1) {
+                // Heart pulsation logic
+                heartPulseScale += pulseDirection;
+                if (heartPulseScale > 1.12 || heartPulseScale < 0.92) {
+                    pulseDirection = -pulseDirection;
+                }
+
+                // Draw Glowing Beating Heart
+                ctx.save();
+                ctx.translate(width / 2, height / 2 - 8);
+                ctx.scale(heartPulseScale, heartPulseScale);
+                ctx.translate(-width / 2, -(height / 2 - 8));
+
+                ctx.strokeStyle = '#ff0055';
+                ctx.shadowColor = '#ff0055';
+                ctx.shadowBlur = 22;
+                ctx.lineWidth = 3.5;
+
+                ctx.beginPath();
+                heartPoints.forEach((pt, idx) => {
+                    if (idx === 0) ctx.moveTo(pt.x, pt.y);
+                    else ctx.lineTo(pt.x, pt.y);
+                });
+                ctx.closePath();
+                ctx.stroke();
+
+                // Inner soft fill
+                ctx.fillStyle = 'rgba(255, 0, 85, 0.12)';
+                ctx.fill();
+                ctx.restore();
+
+                // Draw Center Text: HAPPY BIRTHDAY
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                // Scaled typography for mobile landscape
+                const titleSize = Math.min(width / 12, 46);
+                ctx.font = `900 ${titleSize}px -apple-system, sans-serif`;
+
+                // Main Title Glow
+                ctx.shadowColor = '#00ff66';
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText('HAPPY BIRTHDAY', width / 2, height / 2 - 14);
+
+                // Subtitle
+                const subSize = Math.min(width / 26, 19);
+                ctx.font = `700 ${subSize}px -apple-system, sans-serif`;
+                ctx.shadowColor = '#ff0066';
+                ctx.shadowBlur = 15;
+                ctx.fillStyle = '#ff99cc';
+                ctx.fillText('🎂 Chúc Mừng Sinh Nhật! 💖', width / 2, height / 2 + titleSize * 0.82);
+
+                ctx.restore();
+
+                // Random Fireworks
+                if (Math.random() < 0.04) {
+                    const colors = ['#00ff66', '#ff0055', '#ffcc00', '#00e5ff', '#ff33cc'];
+                    const fx = Math.random() * width;
+                    const fy = Math.random() * (height * 0.7);
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+                    fireworks.push(new Firework(fx, fy, color));
+                }
+            }
+
+            // Render Particle Fireworks
+            fireworks.forEach(fw => {
+                fw.update();
+                fw.draw();
+            });
+            fireworks = fireworks.filter(fw => fw.particles.length > 0);
+
+            requestAnimationFrame(render);
+        }
+
+        // Tap screen to trigger fireworks
+        canvas.addEventListener('touchstart', (e) => {
+            if (phase >= 1 && e.touches.length > 0) {
+                const touch = e.touches[0];
+                const colors = ['#00ff66', '#ff0055', '#ffcc00', '#00e5ff', '#ffffff'];
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                fireworks.push(new Firework(touch.clientX, touch.clientY, color));
+            }
+        });
+
+        canvas.addEventListener('click', (e) => {
+            if (phase >= 1) {
+                const colors = ['#00ff66', '#ff0055', '#ffcc00', '#00e5ff', '#ffffff'];
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                fireworks.push(new Firework(e.clientX, e.clientY, color));
+            }
+        });
+
+        // Start button trigger
+        document.getElementById('btn-start').addEventListener('click', () => {
+            document.getElementById('start-overlay').classList.add('hidden');
+            phase = 1;
+            toggleAudio();
+        });
+
+        // Start render loop
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>
